@@ -4,7 +4,8 @@ import seaborn as sns
 import numpy as np
 import os
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.decomposition import PCA
 import xgboost as xgb
 
 # Crear bucket para figuras si no existe
@@ -248,24 +249,82 @@ modelo_all = entrenar_modelo(
     n_estimators_optimo=optimo_all
 )
 
-#ENTRENAMIENTO 2: Variables filtradas (PCA)
-filtradas_validas = [col for col in filtradas if col in X_train_all.columns]
-print(f"\nDe las {len(filtradas)} características filtradas, {len(filtradas_validas)} sobrevivieron a la limpieza estadística.")
+# ENTRENAMIENTO 2: PCA (Análisis de Componentes Principales)
+print("\n" + "="*60)
+print("Añadiendo PCA (Análisis de Componentes Principales)")
+print("="*60)
 
-X_train_filtrado = X_train_all[filtradas_validas]
-X_test_filtrado = X_test_all[filtradas_validas]
+# 1. Estandarización de las características para PCA (promedio 0, varianza 1)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train_all)
+X_test_scaled = scaler.transform(X_test_all)
 
-# 1. Encontrar el óptimo usando el elbow method
-optimo_filtrado = encontrar_optimo_n_estimators(
-    X_train_filtrado, y_train, X_test_filtrado, y_test,
-    nombre_modelo="XGBoost Filtered Features", 
-    filename_prefix="06_XGBoost_FILTERED"
+# 3. Ajustar PCA inicial para evaluar la varianza explicada
+pca_full = PCA(random_state=42)
+pca_full.fit(X_train_scaled)
+
+# Calcular varianza explicada acumulada
+cumulative_variance = np.cumsum(pca_full.explained_variance_ratio_)
+
+# Encontrar el número de componentes que explican el 95% de la varianza
+n_components_95 = np.argmax(cumulative_variance >= 0.95) + 1
+print(f"Número de componentes requeridos para explicar >95% de varianza: {n_components_95}")
+
+# PLOT: Varianza Explicada Acumulada
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='o', linestyle='--', ms=3)
+plt.axhline(y=0.95, color='r', linestyle='-', label='95% de Varianza Explicada')
+plt.axvline(x=n_components_95, color='r', linestyle='--')
+plt.title('PCA: Varianza Explicada Acumulada', fontsize=14, fontweight='bold')
+plt.xlabel('Número de Componentes Principales', fontsize=12)
+plt.ylabel('Varianza Explicada Acumulada', fontsize=12)
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig("figures/06_PCA_Explained_Variance.png", dpi=300)
+plt.close()
+print("Guardado: figures/06_PCA_Explained_Variance.png")
+
+# 4. Encontrar las "mejores características" analizando los 'loadings' (cargas)
+loadings = pd.DataFrame(
+    pca_full.components_.T[:, :3], 
+    index=X_train_all.columns, 
+    columns=['PC1', 'PC2', 'PC3']
 )
 
-# 2. Correr el modelo definitivo con ese óptimo
-modelo_filtrado = entrenar_modelo(
-    X_train_filtrado, y_train, X_test_filtrado, y_test,
-    nombre_modelo="Modelo XGBoost con Características Seleccionadas (PCA)",
-    filename_prefix="06_XGBoost_FILTERED",
-    n_estimators_optimo=optimo_filtrado
+# PLOT: Mejores características en PC1 (Componente Principal 1)
+pc1_top = loadings['PC1'].abs().sort_values(ascending=False).head(20)
+plt.figure(figsize=(12, 8))
+sns.barplot(x=pc1_top.values, y=pc1_top.index, palette='viridis')
+plt.title('PCA: Top 20 Características en el 1er Componente Principal', fontsize=14, fontweight='bold')
+plt.xlabel('Carga Absoluta (Importancia)', fontsize=12)
+plt.ylabel('Característica Clínica/Biológica', fontsize=12)
+plt.tight_layout()
+plt.savefig("figures/06_PCA_Top_Features_PC1.png", dpi=300)
+plt.close()
+print("Guardado: figures/06_PCA_Top_Features_PC1.png")
+
+# 5. Transformar los datos para el entrenamiento reteniendo el 95% de varianza
+pca_95 = PCA(n_components=n_components_95, random_state=42)
+X_train_pca_np = pca_95.fit_transform(X_train_scaled)
+X_test_pca_np = pca_95.transform(X_test_scaled)
+
+# Convertir a DataFrames
+component_names = [f"PC{i}" for i in range(1, n_components_95 + 1)]
+X_train_pca = pd.DataFrame(X_train_pca_np, columns=component_names)
+X_test_pca = pd.DataFrame(X_test_pca_np, columns=component_names)
+
+# 6. Encontrar el óptimo de iteraciones para PCA
+optimo_pca = encontrar_optimo_n_estimators(
+    X_train_pca, y_train, X_test_pca, y_test,
+    nombre_modelo=f"XGBoost con PCA ({n_components_95} Componentes)", 
+    filename_prefix="06_XGBoost_PCA"
+)
+
+# 7. Modelo Definitivo PCA
+modelo_pca = entrenar_modelo(
+    X_train_pca, y_train, X_test_pca, y_test,
+    nombre_modelo=f"Modelo XGBoost PCA (>95% Varianza)",
+    filename_prefix="06_XGBoost_PCA",
+    n_estimators_optimo=optimo_pca
 )
