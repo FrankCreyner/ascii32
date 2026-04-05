@@ -1,0 +1,119 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="preprocesamiento_alzheimer" name="Pipeline de Preprocesamiento">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <mxCell id="nodo_inicio" value="Base de Datos Original&#xa;(Multimodal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="330" y="40" width="180" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="nodo_baseline" value="Baseline:&#xa;Selección de 1ra visita por paciente" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="330" y="130" width="180" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="nodo_nan" value="Formateo de Nulos:&#xa;Estandarización de vacíos a NaN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="330" y="220" width="180" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="nodo_filtro_nulos" value="Filtro de Calidad:&#xa;Eliminar características con &gt; 75% nulos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="330" y="310" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_filtro_corr" value="Filtro de Colinealidad:&#xa;Eliminar características con correlación &gt; 85%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="330" y="400" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_neuro" value="Extracción de Datos:&#xa;Características de Neuroimagen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="490" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_feature_eng" value="Ingeniería de Atributos:&#xa;Polos opuestos (Normalización,&#xa;Diferencia y Promedio)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="580" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_estandarizacion" value="Estandarización&#xa;de Atributos (Escalado)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="330" y="670" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_codificacion" value="Codificación Numérica:&#xa;Transformación a valores estrictamente numéricos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="330" y="760" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_split" value="División de Datos&#xa;(Train / Test Split)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="330" y="850" width="180" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_train" value="Conjunto de Entrenamiento&#xa;(Train Data)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="150" y="960" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_test" value="Conjunto de Prueba&#xa;(Test Data)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="510" y="960" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_imputacion_train" value="Imputación de Datos:&#xa;Entrenamiento de Random Forest Imputer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bac8d3;strokeColor=#23445d;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="150" y="1050" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nodo_imputacion_test" value="Imputación de Datos:&#xa;Aplicación del modelo RF sobre Test" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bac8d3;strokeColor=#23445d;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="510" y="1050" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_inicio_base" edge="1" parent="1" source="nodo_inicio" target="nodo_baseline" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_base_nan" edge="1" parent="1" source="nodo_baseline" target="nodo_nan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_nan_filtro" edge="1" parent="1" source="nodo_nan" target="nodo_filtro_nulos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_filtro_corr" edge="1" parent="1" source="nodo_filtro_nulos" target="nodo_filtro_corr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_corr_neuro" edge="1" parent="1" source="nodo_filtro_corr" target="nodo_neuro" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_neuro_feat" edge="1" parent="1" source="nodo_neuro" target="nodo_feature_eng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_feat_est" edge="1" parent="1" source="nodo_feature_eng" target="nodo_estandarizacion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_est_cod" edge="1" parent="1" source="nodo_estandarizacion" target="nodo_codificacion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_cod_split" edge="1" parent="1" source="nodo_codificacion" target="nodo_split" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_split_train" edge="1" parent="1" source="nodo_split" target="nodo_train" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_split_test" edge="1" parent="1" source="nodo_split" target="nodo_test" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_train_imp" edge="1" parent="1" source="nodo_train" target="nodo_imputacion_train" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_test_imp" edge="1" parent="1" source="nodo_test" target="nodo_imputacion_test" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
