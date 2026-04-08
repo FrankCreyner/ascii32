@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.decomposition import PCA
 import xgboost as xgb
+import joblib
 
 # Crear bucket para figuras si no existe
 os.makedirs("figures", exist_ok=True)
@@ -172,7 +173,7 @@ def entrenar_modelo(X_train, y_train, X_test, y_test, nombre_modelo, filename_pr
     print(f"Entrenamiento Final: {nombre_modelo} (con {n_estimators_optimo} iteraciones)")
     print("-" * 50)
     
-    # Entrenamos el modelo estrictamente con el x_train (TADPOLE_D1_D2_BL_RF_TRAIN.csv)
+    # Entrenamos el modelo con el x_train (TADPOLE_D1_D2_BL_RF_TRAIN.csv)
     modelo = xgb.XGBClassifier(
         n_estimators=n_estimators_optimo,
         max_depth=6,
@@ -184,7 +185,7 @@ def entrenar_modelo(X_train, y_train, X_test, y_test, nombre_modelo, filename_pr
 
     modelo.fit(X_train, y_train)
 
-    # Validamos estrictamente con x_test (TADPOLE_D1_D2_BL_RF_TEST.csv)
+    # Validamos con x_test (TADPOLE_D1_D2_BL_RF_TEST.csv)
     y_pred = modelo.predict(X_test)
 
     # Métricas Globales
@@ -218,12 +219,12 @@ def entrenar_modelo(X_train, y_train, X_test, y_test, nombre_modelo, filename_pr
 
     #PLOT 2: Importancia de Variables
     importances = modelo.feature_importances_
-    indices = np.argsort(importances)[::-1][:50] # Mostramos solo el TOP 50 variables
+    indices = np.argsort(importances)[::-1][:30] # Mostramos solo el TOP 30 variables
     nombres_features = X_train.columns[indices]
     
     plt.figure(figsize=(30, 20))
     sns.barplot(x=importances[indices], y=nombres_features, palette="mako")
-    plt.title(f"Predictibilidad - Top 50 Características\n{nombre_modelo}", fontsize=13, fontweight='bold')
+    plt.title(f"Predictibilidad - Top 30 Características\n{nombre_modelo}", fontsize=13, fontweight='bold')
     plt.xlabel("Puntuación de Importancia de XGBoost (F-score/Gini)", fontsize=11)
     plt.ylabel("Características Biomédicas", fontsize=11)
     plt.tight_layout()
@@ -237,14 +238,14 @@ def entrenar_modelo(X_train, y_train, X_test, y_test, nombre_modelo, filename_pr
 # 1. Encontrar el óptimo usando el elbow method
 optimo_all = encontrar_optimo_n_estimators(
     X_train_all, y_train, X_test_all, y_test,
-    nombre_modelo="XGBoost ALL Features", 
+    nombre_modelo="XGBoost", 
     filename_prefix="05_XGBoost_ALL"
 )
 
 # 2. Correr el modelo definitivo con ese óptimo
 modelo_all = entrenar_modelo(
     X_train_all, y_train, X_test_all, y_test,
-    nombre_modelo="Modelo XGBoost con TODAS las Características",
+    nombre_modelo="Modelo XGBoost",
     filename_prefix="05_XGBoost_ALL",
     n_estimators_optimo=optimo_all
 )
@@ -328,3 +329,10 @@ modelo_pca = entrenar_modelo(
     filename_prefix="06_XGBoost_PCA",
     n_estimators_optimo=optimo_pca
 )
+
+#Hacemos el empaquetado del modelo normal
+print("\n" + "="*60)
+
+
+joblib.dump(modelo_all, "xgboost_model.pkl")
+print("El modelo se guardó como 'xgboost_model.pkl'")
