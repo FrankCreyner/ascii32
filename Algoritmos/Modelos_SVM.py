@@ -44,7 +44,7 @@ print("="*50)
 pipeline_svm = Pipeline([
     ("scaler", StandardScaler()),
     ("feature_select", SelectKBest(score_func=mutual_info_classif)),
-    ("svm", SVC(kernel="rbf", class_weight="balanced"))
+    ("svm", SVC(kernel="rbf", class_weight="balanced", probability=True))
 ])
 
 param_grid_svm = {
@@ -116,7 +116,7 @@ pipeline_pca = Pipeline([
     ("scaler", StandardScaler()),
     ("feature_select", SelectKBest(score_func=mutual_info_classif)),
     ("pca", PCA()),
-    ("svm", SVC(kernel="rbf", class_weight="balanced"))
+    ("svm", SVC(kernel="rbf", class_weight="balanced", probability=True))
 ])
 
 # Grid asegurando que pca__n_components <= feature_select__k
