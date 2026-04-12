@@ -1,0 +1,76 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="zUrhltm4oZPlpkT3dCn_">
+    <mxGraphModel dx="1417" dy="517" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-3" parent="1" style="swimlane;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 8;fillColor=none;strokeColor=#CCCCCC;fontColor=#3399FF;startSize=40;verticalAlign=top;align=center;" value="Preprocesamiento" vertex="1">
+          <mxGeometry height="400" width="730" x="60" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-4" parent="vTMsxIESpNRdaBHdQPAr-3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#BBDEFB;fontColor=#1E88E5;" value="&lt;b&gt;Eliminación&lt;/b&gt;&lt;br&gt;de características" vertex="1">
+          <mxGeometry height="90" width="200" x="30" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-5" parent="vTMsxIESpNRdaBHdQPAr-3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#C8E6C9;fontColor=#43A047;" value="&lt;b&gt;Selección de&lt;/b&gt;&lt;br&gt;características relevantes" vertex="1">
+          <mxGeometry height="90" width="200" x="500" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-6" parent="vTMsxIESpNRdaBHdQPAr-3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#F8BBD0;fontColor=#D81B60;" value="&lt;b&gt;Ingeniería&lt;/b&gt;&lt;br&gt;de atributos" vertex="1">
+          <mxGeometry height="90" width="200" x="265" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-7" parent="vTMsxIESpNRdaBHdQPAr-3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FFE0B2;fontColor=#FB8C00;" value="&lt;b&gt;Imputación&lt;/b&gt;&lt;br&gt;con Random Forest" vertex="1">
+          <mxGeometry height="80" width="200" x="265" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0E6FF;strokeColor=#D1C4E9;fontColor=#673AB7;" value="&lt;b&gt;Datos de entrada&lt;/b&gt;&lt;br&gt;Features para predecir DX" vertex="1">
+          <mxGeometry height="80" width="200" x="325" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#BBDEFB;fontColor=#1E88E5;" value="&lt;b&gt;SVM&lt;/b&gt;&lt;br&gt;Support Vector Machine" vertex="1">
+          <mxGeometry height="90" width="230" x="45" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#C8E6C9;fontColor=#43A047;" value="&lt;b&gt;Random Forest&lt;/b&gt;&lt;br&gt;Ensemble de árboles" vertex="1">
+          <mxGeometry height="90" width="230" x="310" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBE9E7;strokeColor=#FFCCBC;fontColor=#E64A19;" value="&lt;b&gt;XGBoost&lt;/b&gt;&lt;br&gt;Gradient boosting" vertex="1">
+          <mxGeometry height="90" width="230" x="575" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-12" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FFE0B2;fontColor=#A85507;" value="&lt;b&gt;Voting probabilístico&lt;/b&gt;&lt;div&gt;Soft voting: promedio de probabilidades&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="350" x="250" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#C8E6C9;fontColor=#43A047;" value="&lt;b&gt;Predicción final: DX&lt;/b&gt;&lt;br&gt;Diagnóstico del ensemble" vertex="1">
+          <mxGeometry height="80" width="375" x="237.5" y="910" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-14" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-8" target="vTMsxIESpNRdaBHdQPAr-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-15" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-4" target="vTMsxIESpNRdaBHdQPAr-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-16" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-5" target="vTMsxIESpNRdaBHdQPAr-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-17" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-6" target="vTMsxIESpNRdaBHdQPAr-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-18" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-7" target="vTMsxIESpNRdaBHdQPAr-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-19" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-7" target="vTMsxIESpNRdaBHdQPAr-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-20" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-7" target="vTMsxIESpNRdaBHdQPAr-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-21" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-9" target="vTMsxIESpNRdaBHdQPAr-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-22" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-10" target="vTMsxIESpNRdaBHdQPAr-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-23" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-11" target="vTMsxIESpNRdaBHdQPAr-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="vTMsxIESpNRdaBHdQPAr-24" edge="1" parent="1" source="vTMsxIESpNRdaBHdQPAr-12" target="vTMsxIESpNRdaBHdQPAr-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
