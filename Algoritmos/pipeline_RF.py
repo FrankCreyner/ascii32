@@ -7,6 +7,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import warnings
+import os
+from pathlib import Path
 
 def missing_data(df, threshold=0.75):
     missing = df.isna().mean().sort_values(ascending=False)
@@ -95,12 +97,17 @@ if __name__ == "__main__":
     # Ignoramos alertas de warning innecesarias de pandas (por si acaso quedan fragmentaciones)
     warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
-    df = pd.read_csv("TADPOLE_D1_D2.csv", low_memory=False, na_values=["", " ", "-4", -4, "-1", -1, "NA"])
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent
+    print(f"Script directory: {script_dir}")
+    
+    # Read CSV files from the script's directory
+    df = pd.read_csv(script_dir / "TADPOLE_D1_D2.csv", low_memory=False, na_values=["", " ", "-4", -4, "-1", -1, "NA"])
 
-    df_baipetnmrc = pd.read_csv("BAIPETNMRC.csv", low_memory=False)
-    df_volumen = pd.read_csv("volumen.csv")
-    df_st_regions = pd.read_csv("st_regions.csv")
-    df_otras = pd.read_csv("otras.csv")
+    df_baipetnmrc = pd.read_csv(script_dir / "BAIPETNMRC.csv", low_memory=False)
+    df_volumen = pd.read_csv(script_dir / "volumen.csv")
+    df_st_regions = pd.read_csv(script_dir / "st_regions.csv")
+    df_otras = pd.read_csv(script_dir / "otras.csv")
     
     df_baipetnmrc.columns = df_baipetnmrc.columns.str.strip()
     df_volumen.columns = df_volumen.columns.str.strip()
@@ -171,7 +178,17 @@ if __name__ == "__main__":
         "BASETP7_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
         "BASETP8_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
         "ADAS11",
-        "RUNDATE_UCSFFSX_11_02_15_UCSFFSX51_08_01_16"
+        "RUNDATE_UCSFFSX_11_02_15_UCSFFSX51_08_01_16",
+        "CDRSB",
+        "CDRSB_bl",
+        "FLDSTRENG_bl",
+        "FSVERSION_bl",
+        "LONIUID_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
+        "RUNDATE_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
+        "PARQC_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
+        "OCCQC_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
+        "BGQC_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16",
+        "CWMQC_UCSFFSL_02_01_16_UCSFFSL51ALL_08_01_16"
     ]
     
     columnas_a_quitar = [c for c in columnas_a_quitar if c in df_bl.columns]
@@ -196,17 +213,40 @@ if __name__ == "__main__":
 
     if "DX" in df_bl.columns:
         df_bl = df_bl.dropna(subset=["DX"]).reset_index(drop=True)
-        class_counts = df_bl["DX"].value_counts()
-        valid_classes = class_counts[class_counts >= 3].index
         
-        # Filtramos para quedarnos solo con clases aptas para entrenamiento
-        df_bl = df_bl[df_bl["DX"].isin(valid_classes)].reset_index(drop=True)
+        # Filter to keep only the three main diagnostic classes
+        print("\n--- Filtering DX classes ---")
+        print("Original DX distribution:")
+        for dx_val, count in df_bl["DX"].value_counts().sort_index().items():
+            print(f"  {dx_val}: {count} samples")
         
-        # First split: 70% train, 30% temp (which will become 15% val + 15% test)
-        train_df, temp_df = train_test_split(df_bl, test_size=0.3, random_state=42, stratify=df_bl["DX"])
+        # Keep only stable diagnoses: Dementia (AD), MCI, and NL
+        # Remove transition states like "MCI to Dementia", "NL to MCI", etc.
+        valid_dx_values = ['Dementia', 'MCI', 'NL']
+        df_bl = df_bl[df_bl["DX"].isin(valid_dx_values)].reset_index(drop=True)
         
-        # Second split: Split temp into 50% validation and 50% test (15% each of original)
-        val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42, stratify=temp_df["DX"])
+        print("\nFiltered DX distribution (kept only stable diagnoses):")
+        for dx_val, count in df_bl["DX"].value_counts().sort_index().items():
+            print(f"  {dx_val}: {count} samples")
+        
+        # Stratified split: 60% train, 20% validation, 20% test
+        print("\nPerforming stratified split: 60% train, 20% validation, 20% test")
+        
+        # First split: 60% train, 40% temp (which will become 20% val + 20% test)
+        train_df, temp_df = train_test_split(
+            df_bl,
+            test_size=0.4,
+            random_state=42,
+            stratify=df_bl["DX"]
+        )
+        
+        # Second split: Split temp into 50% validation and 50% test (20% each of original)
+        val_df, test_df = train_test_split(
+            temp_df,
+            test_size=0.5,
+            random_state=42,
+            stratify=temp_df["DX"]
+        )
     else:
         # First split: 70% train, 30% temp
         train_df, temp_df = train_test_split(df_bl, test_size=0.3, random_state=42)
@@ -319,11 +359,15 @@ if __name__ == "__main__":
     test_df.insert(1, "EXAMDATE", test_ids["EXAMDATE"])
 
     print("\n=== Guardando Datasets ===")
-    train_df.to_csv("TADPOLE_D1_D2_BL_RF_TRAIN.csv", index=False)
-    val_df.to_csv("TADPOLE_D1_D2_BL_RF_VALIDATION.csv", index=False)
-    test_df.to_csv("TADPOLE_D1_D2_BL_RF_TEST.csv", index=False)
+    # Save output files in the same directory as the script
+    train_df.to_csv(script_dir / "TADPOLE_D1_D2_BL_RF_TRAIN.csv", index=False)
+    val_df.to_csv(script_dir / "TADPOLE_D1_D2_BL_RF_VALIDATION.csv", index=False)
+    test_df.to_csv(script_dir / "TADPOLE_D1_D2_BL_RF_TEST.csv", index=False)
     
     print(f"\n Train dataset guardado: {len(train_df)} filas, {len(train_df.columns)} columnas")
+    print(f"  Ubicación: {script_dir / 'TADPOLE_D1_D2_BL_RF_TRAIN.csv'}")
     print(f" Validation dataset guardado: {len(val_df)} filas, {len(val_df.columns)} columnas")
+    print(f"  Ubicación: {script_dir / 'TADPOLE_D1_D2_BL_RF_VALIDATION.csv'}")
     print(f" Test dataset guardado: {len(test_df)} filas, {len(test_df.columns)} columnas")
+    print(f"  Ubicación: {script_dir / 'TADPOLE_D1_D2_BL_RF_TEST.csv'}")
     print("\nPipeline completado exitosamente!")
