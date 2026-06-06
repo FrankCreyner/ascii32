@@ -706,7 +706,7 @@ plt.title(f"Confusion Matrix - TARTE Boost + XGBoost\n(Seed: {SEED})", fontsize=
 plt.xlabel("Predicted Diagnosis")
 plt.ylabel("True Diagnosis")
 plt.tight_layout()
-plt.savefig(f"Matriz_Confusion_TARTE_Boost_XGBoost_Real_Seed{SEED}.png", dpi=300)
+plt.savefig(f"Matriz_Confusion_TARTE_Boost_XGBoost_Real_Seed{SEED}.svg", dpi=300)
 plt.close()
 
 # Multiclass ROC Curve (One-vs-Rest)
@@ -729,5 +729,5 @@ plt.title(f'Multiclass ROC Curve - TARTE Boost + XGBoost (Seed: {SEED})', fontsi
 plt.legend(loc="lower right")
 plt.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig(f"Curva_ROC_TARTE_Boost_XGBoost_Real_Seed{SEED}.png", dpi=300)
+plt.savefig(f"Curva_ROC_TARTE_Boost_XGBoost_Real_Seed{SEED}.svg", dpi=300)
 plt.close()
