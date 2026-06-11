@@ -40,94 +40,15 @@ def patched_extract_per_layer(self, x, edge_attr, mask, model_config, num_layers
 
 tarte_ai.TARTE_TableEncoder._extract_per_layer = patched_extract_per_layer
 
-# MONKEY PATCH: Fixes Out of Memory (OOM) bug in TARTEFinetuneClassifier during validation and testing
-# By default, the library evaluates the entire validation/test dataset in a single giant batch.
-def patched_eval(self, model, ds_eval):
-    with torch.no_grad():
-        model.eval()
-        batch_size = 32
-        num_samples = ds_eval[0].size(0)
-        for i in range(0, num_samples, batch_size):
-            ds_batch = [
-                ds_eval[0][i:i+batch_size].to(self.device_),
-                ds_eval[1][i:i+batch_size].to(self.device_),
-                ds_eval[2][i:i+batch_size].to(self.device_),
-                ds_eval[-1][i:i+batch_size].to(self.device_)
-            ]
-            out = model(ds_batch[0], ds_batch[1], ds_batch[2])
-            target = ds_batch[-1].view(-1).to(torch.float32)
-            if self.loss == "categorical_crossentropy":
-                target = target.to(torch.long)
-            if self.output_dim_ == 1:
-                out = out.view(-1).to(torch.float32)
-                target = target.to(torch.float32)
-            self.valid_loss_metric_.update(out, target)
-            
-        loss_eval = self.valid_loss_metric_.compute()
-        loss_eval = loss_eval.detach().item()
-        if self.valid_loss_flag_ == "neg":
-            loss_eval = -1 * loss_eval
-        self.valid_loss_metric_.reset()
-    return loss_eval
-
-def patched_generate_output(self, X, model_list, weights):
-    from tarte_ai.tarte_finetune_estimator import TARTETabularDataset
-    from torch.utils.data import DataLoader
-    from scipy.special import softmax
-    import numpy as np
-    
-    ds_test = TARTETabularDataset(X)
-    batch_size_test = min(32, len(X))
-    test_loader = DataLoader(ds_test, batch_size=batch_size_test, shuffle=False)
-
-    out_total = []
-    with torch.no_grad():
-        for ds_predict_eval in test_loader:
-            ds_predict_eval[0] = ds_predict_eval[0].to(self.device_)
-            ds_predict_eval[1] = ds_predict_eval[1].to(self.device_)
-            ds_predict_eval[2] = ds_predict_eval[2].to(self.device_)
-            ds_predict_eval[-1] = ds_predict_eval[-1].to(self.device_)
-            
-            out = [
-                model(ds_predict_eval[0], ds_predict_eval[1], ds_predict_eval[2])
-                .cpu()
-                .detach()
-                .numpy()
-                for model in model_list
-            ]
-            out = np.average(out, weights=weights, axis=0)
-            out_total.append(out)
-            
-    out = np.concatenate(out_total, axis=0)
-
-    if self.loss == "binary_crossentropy":
-        out = 1 / (1 + np.exp(-out))
-    elif self.loss == "categorical_crossentropy":
-        out = softmax(out, axis=1)
-
-    if np.isnan(out).sum() > 0:
-        mean_pred = np.mean(self.y_)
-        out[np.isnan(out)] = mean_pred
-
-    if out.ndim == 2 and out.shape[1] == 1:
-        out = out.squeeze(axis=1)
-
-    return out
-
-tarte_ai.tarte_finetune_estimator.BaseTARTEFinetuneEstimator._eval = patched_eval
-tarte_ai.tarte_finetune_estimator.BaseTARTEFinetuneEstimator._generate_output = patched_generate_output
-
 from sklearn.metrics import balanced_accuracy_score, roc_curve, auc
 from sklearn.model_selection import PredefinedSplit, GridSearchCV
 from sklearn.preprocessing import StandardScaler, LabelEncoder, label_binarize
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC
 from xgboost import XGBClassifier
 from sklearn.metrics import (
     classification_report, confusion_matrix, ConfusionMatrixDisplay,
     f1_score, accuracy_score, precision_score, recall_score, roc_auc_score
 )
-from sklearn.decomposition import PCA
 
 # ==========================================
 # 1. CONFIGURATION AND REPRODUCIBILITY
@@ -135,11 +56,11 @@ from sklearn.decomposition import PCA
 SEED = 42
 
 print(f"\n{'='*75}")
-print(f"[*] USING RANDOM SEED FOR THIS RUN: {SEED}")
+print(f"[*] USING FIXED REPRODUCIBILITY SEED: {SEED}")
 print(f"{'='*75}\n")
 
 def set_seeds(seed):
-    """Sets all seeds to guarantee the reproducibility of this specific run."""
+    """Sets all seeds to guarantee reproducibility."""
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
@@ -602,130 +523,209 @@ X_train = apply_tarte_mapping(X_train, master_mapping)
 X_val   = apply_tarte_mapping(X_val, master_mapping)
 X_test  = apply_tarte_mapping(X_test, master_mapping)
 
-print(f"\nDimensions -> TRAIN: {X_train.shape}, TEST: {X_test.shape}")
+print(f"\nDimensions -> TRAIN: {X_train.shape}, VAL: {X_val.shape}, TEST: {X_test.shape}")
 
-# ==========================================
-# 5. PREPROCESSING FOR TARTE (GRAPHS)
-# ==========================================
-print("\n[+] Combining Train and Validation for Fine-Tuning...")
+# Configure PredefinedSplit for training/validation
 X_train_val = pd.concat([X_train, X_val], axis=0).reset_index(drop=True)
 y_train_val = np.concatenate([y_train, y_val])
 
-print("\n[+] Preprocessing joint tables to TARTE graph format...")
-start_prep = time.time()
-preprocessor = tarte_ai.TARTE_TablePreprocessor()
-X_train_graphs = preprocessor.fit_transform(X_train_val, y_train_val)
-X_test_graphs = preprocessor.transform(X_test)
-print(f" -> Preprocessing completed in {time.time() - start_prep:.2f} seconds.")
+test_fold = np.concatenate([np.full(X_train.shape[0], -1), np.zeros(X_val.shape[0])])
+ps = PredefinedSplit(test_fold)
 
 # ==========================================
-# 6. TARTE FINE-TUNING MODEL
+# 5. TARTE ENCODER
 # ==========================================
-print("\n[+] Initializing TARTEFinetuneClassifier...")
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+class TARTEFeaturizer:
+    def __init__(self, output_dim=768, device=None):
+        if device is None:
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            self.device = device
+        self.preprocessor = tarte_ai.TARTE_TablePreprocessor()
+        self.encoder = tarte_ai.TARTE_TableEncoder(device=self.device, dim_embedding=output_dim)
+        self.is_fitted_ = False
 
-# Enhanced Fine-Tuning model configuration
-ft_model = tarte_ai.TARTEFinetuneClassifier(
-    loss='categorical_crossentropy',
-    scoring='accuracy',
-    finetune_strategy='freeze', # 'freeze' to avoid destroying transformer weights (Catastrophic Forgetting)
-    learning_rate=1e-3,         # Increased to better converge the last layer
-    batch_size=32,
-    max_epoch=150,              # More epochs
-    early_stopping_patience=20, # More patience
-    random_state=SEED,
-    device=device,
-    disable_pbar=False
+    def fit(self, X, y=None):
+        X_prep = self.preprocessor.fit_transform(X)
+        self.encoder.fit(X_prep)
+        self.is_fitted_ = True
+        return self
+
+    def transform(self, X, batch_size=64):
+        embeddings = []
+        total_batches = (len(X) - 1) // batch_size + 1
+        
+        # Process in batches to prevent GPU/CPU from running out of memory
+        for i in range(0, len(X), batch_size):
+            batch_num = i // batch_size + 1
+            print(f"    [Batch {batch_num}/{total_batches}] Extracting embeddings...")
+            
+            if isinstance(X, pd.DataFrame):
+                X_batch = X.iloc[i:i+batch_size]
+            else:
+                X_batch = X[i:i+batch_size]
+                
+            X_prep_batch = self.preprocessor.transform(X_batch)
+            emb_batch = self.encoder.transform(X_prep_batch)
+            embeddings.append(emb_batch)
+            
+            # Clear GPU cache after each batch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                
+        return np.vstack(embeddings)
+
+    def fit_transform(self, X, y=None, batch_size=64):
+        self.fit(X, y)
+        return self.transform(X, batch_size=batch_size)
+
+print("\n[+] Initializing TARTE and extracting real embeddings from the foundation model...")
+start_emb = time.time()
+tarte_model = TARTEFeaturizer()
+
+print(" -> Extracting semantic embeddings for TRAIN + VAL...")
+try:
+    X_train_val_emb = tarte_model.fit_transform(X_train_val)
+except torch.OutOfMemoryError:
+    print("\n[WARNING] GPU ran out of memory (CUDA Out of Memory).")
+    print(" -> Freeing CUDA cache and automatically retrying on CPU...")
+    torch.cuda.empty_cache()
+    tarte_model = TARTEFeaturizer(device='cpu')
+    X_train_val_emb = tarte_model.fit_transform(X_train_val)
+
+print(f" -> Completed in {time.time() - start_emb:.2f} seconds.")
+
+start_test_emb = time.time()
+print(" -> Extracting semantic embeddings for TEST...")
+try:
+    X_test_emb = tarte_model.transform(X_test)
+except torch.OutOfMemoryError:
+    print("\n[WARNING] GPU ran out of memory during TEST.")
+    print(" -> Automatically retrying on CPU...")
+    torch.cuda.empty_cache()
+    tarte_model = TARTEFeaturizer(device='cpu')
+    X_test_emb = tarte_model.transform(X_test)
+
+print(f" -> Completed in {time.time() - start_test_emb:.2f} seconds.")
+print(f"[+] Embedding extraction completed in {(time.time() - start_emb) / 60:.2f} minutes.")
+
+X_train_val_orig_np = np.array(X_train_val)
+X_test_orig_np = np.array(X_test)
+
+# ==========================================
+# 6. CONFIGURE DATA FOR TARTE BOOST
+# ==========================================
+# TARTE Boost combines original features with TARTE embeddings
+X_train_val_boost = np.hstack([X_train_val_orig_np, X_train_val_emb])
+X_test_boost = np.hstack([X_test_orig_np, X_test_emb])
+
+# ==========================================
+# 7. TRAINING OF TARTE BOOST + XGBOOST
+# ==========================================
+experiment_name = "TARTE Boost + XGBoost"
+print(f"\n{'='*65}")
+print(f"STARTING: {experiment_name} (SEED: {SEED})")
+print(f"{'='*65}")
+
+# Hyperparameters grid for XGBoost search
+param_grid = {
+    'modelo__n_estimators': [50, 100, 200],
+    'modelo__max_depth': [3, 5, 7],
+    'modelo__learning_rate': [0.01, 0.1, 0.2]
+}
+
+estimator = XGBClassifier(
+    device='cuda',
+    random_state=SEED, 
+    use_label_encoder=False, 
+    eval_metric='mlogloss'
 )
 
-# TARTEFinetuneClassifier sometimes forgets to initialize _estimator_type
-ft_model._estimator_type = "classifier"
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('modelo', estimator)
+])
 
-# --- GLOBAL TRAINING (Train + Validation) ---
+# GridSearchCV using PredefinedSplit
+grid_search = GridSearchCV(
+    estimator=pipeline,
+    param_grid=param_grid,
+    scoring='f1_macro',
+    cv=ps,
+    n_jobs=2,          
+    verbose=2,
+    refit=True
+)
+
 start_time = time.time()
-print("\n[+] Training final Fine-Tuned model (TRAIN + VAL)...")
-print(" -> This may require significant GPU VRAM and time.")
-
-try:
-    ft_model.fit(X_train_graphs, y_train_val)
-except Exception as e:
-    print(f"\n[!] Error during final training: {e}")
-    print("[!] Trying to reduce batch_size...")
-    ft_model.batch_size = 16
-    ft_model.fit(X_train_graphs, y_train_val)
-
+grid_search.fit(X_train_val_boost, y_train_val)
 total_time = (time.time() - start_time) / 60
-print(f"\n[+] Training completed in {total_time:.2f} minutes.")
+best_model = grid_search.best_estimator_
 
-print("\n[+] Evaluating Fine-Tuned model on TEST...")
-y_pred = ft_model.predict(X_test_graphs)
-y_prob = ft_model.predict_proba(X_test_graphs)
+print(f"\n[+] Search finished in {total_time:.2f} min.")
+print(f"[+] Best Hyperparameters: {grid_search.best_params_}")
 
-# Metrics for internal report
-acc = accuracy_score(y_test, y_pred)
-b_acc = balanced_accuracy_score(y_test, y_pred)
-f1_mac = f1_score(y_test, y_pred, average='macro', zero_division=0)
-try:
-    roc_auc = roc_auc_score(y_test, y_prob, multi_class='ovr', average='macro')
-except:
-    roc_auc = np.nan
+y_test_pred = best_model.predict(X_test_boost)
+y_test_prob = best_model.predict_proba(X_test_boost)
 
 # ==========================================
-# 7. FORMATTED PRINTING OF METRICS
+# 8. FORMATTED PRINTING OF METRICS
 # ==========================================
 def print_formatted_metrics(title, y_true, y_pred):
-    acc_val = accuracy_score(y_true, y_pred)
-    prec_val = precision_score(y_true, y_pred, average='weighted', zero_division=0)
-    rec_val = recall_score(y_true, y_pred, average='weighted', zero_division=0)
-    f1_val = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+    rec = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+    f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
     
-    print("-" * 61)
     print(title)
-    print("-" * 61)
-    print(f"* Accuracy: {acc_val:.4f}")
-    print(f"* Precision: {prec_val:.4f}")
-    print(f"* Recall: {rec_val:.4f}")
-    print(f"* F1 Score: {f1_val:.4f}")
+    print("-" * 45)
+    print(f"* Accuracy: {acc:.4f}")
+    print(f"* Precision: {prec:.4f}")
+    print(f"* Recall: {rec:.4f}")
+    print(f"* F1 Score: {f1:.4f}")
 
-print_formatted_metrics("METRICS FOR THE TEST SET:", y_test, y_pred)
-print("-" * 61)
+print_formatted_metrics("METRICS FOR THE TEST SET:", y_test, y_test_pred)
+print("-" * 45)
 
-print("\n--- Classification Report (Fine-Tuning) ---")
-print(classification_report(y_test, y_pred, zero_division=0))
+print("\n--- Classification Report (TARTE Boost + XGBoost) ---")
+print(classification_report(y_test, y_test_pred, zero_division=0))
 print("--- Confusion Matrix ---")
-print(confusion_matrix(y_test, y_pred))
+print(confusion_matrix(y_test, y_test_pred))
 
+# ==========================================
+# 9. EXPORT OF RESULTS AND PLOTS
+# ==========================================
 # Visual Confusion Matrix
-cm_test = confusion_matrix(y_test, y_pred)
+cm_test = confusion_matrix(y_test, y_test_pred)
 fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
 disp = ConfusionMatrixDisplay(confusion_matrix=cm_test, display_labels=le.classes_)
-disp.plot(cmap="Purples", ax=ax_cm, values_format='d')
-plt.title(f"Confusion Matrix - TARTE Fine-Tuning\n(Seed: {SEED})", fontsize=12)
+disp.plot(cmap="Reds", ax=ax_cm, values_format='d')
+plt.title(f"Confusion Matrix - TARTE Boost + XGBoost\n(Seed: {SEED})", fontsize=12)
 plt.xlabel("Predicted Diagnosis")
 plt.ylabel("True Diagnosis")
 plt.tight_layout()
-plt.savefig(f"Matriz_Confusion_TARTE_FineTuning_Seed{SEED}.svg", dpi=300)
+plt.savefig(f"Matriz_Confusion_TARTE_Boost_XGBoost_Real_Seed{SEED}.svg", dpi=300)
 plt.close()
 
-# ROC Curve
+# Multiclass ROC Curve (One-vs-Rest)
 y_test_bin = label_binarize(y_test, classes=range(len(le.classes_)))
 n_classes = y_test_bin.shape[1]
 fig_roc, ax_roc = plt.subplots(figsize=(10, 8))
 colors = cycle(['#1f77b4', '#ff7f0e', '#2ca02c'])
 lw = 2
 for i, color in zip(range(n_classes), colors):
-    fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_prob[:, i])
+    fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_test_prob[:, i])
     roc_auc_val = auc(fpr, tpr)
     ax_roc.plot(fpr, tpr, color=color, lw=lw,
                 label=f'ROC Curve for {le.classes_[i]} (AUC = {roc_auc_val:0.3f})')
 ax_roc.plot([0, 1], [0, 1], 'k--', lw=lw)
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title(f'ROC Curve - Fine-Tuning (Seed: {SEED})', fontsize=12)
+plt.xlabel('False Positive Rate (1 - Specificity)')
+plt.ylabel('True Positive Rate (Sensitivity / Recall)')
+plt.title(f'Multiclass ROC Curve - TARTE Boost + XGBoost (Seed: {SEED})', fontsize=12)
 plt.legend(loc="lower right")
 plt.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig(f"Curva_ROC_TARTE_FineTuning_Seed{SEED}.svg", dpi=300)
+plt.savefig(f"Curva_ROC_TARTE_Boost_XGBoost_Real_Seed{SEED}.svg", dpi=300)
 plt.close()
